@@ -1,0 +1,243 @@
+-- ----------------------------
+-- 1. 创建数据库
+-- ----------------------------
+CREATE DATABASE IF NOT EXISTS student_weibo DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE student_weibo;
+
+-- ----------------------------
+-- 2. 基础核心表（9张）
+-- ----------------------------
+
+-- 用户表
+CREATE TABLE users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(100) NOT NULL,
+    nickname VARCHAR(50),
+    avatar VARCHAR(255),
+    gender ENUM('男','女','保密') DEFAULT '保密',
+    intro TEXT,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('正常','封禁') DEFAULT '正常',
+    score INT DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 微博内容表
+CREATE TABLE weibo_posts (
+    weibo_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT,
+    category_id INT,
+    like_count INT DEFAULT 0,
+    comment_count INT DEFAULT 0,
+    repost_count INT DEFAULT 0,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_delete ENUM('是','否') DEFAULT '否',
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 微博图片表
+CREATE TABLE weibo_images (
+    image_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    weibo_id INT NOT NULL,
+    image_url VARCHAR(255) NOT NULL,
+    sort INT DEFAULT 0,
+    FOREIGN KEY (weibo_id) REFERENCES weibo_posts(weibo_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 评论表
+CREATE TABLE comments (
+    comment_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    weibo_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    parent_id INT,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (weibo_id) REFERENCES weibo_posts(weibo_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 点赞表
+CREATE TABLE likes (
+    like_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    user_id INT NOT NULL,
+    target_id INT NOT NULL,
+    target_type ENUM('微博','评论') NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 关注关系表
+CREATE TABLE follows (
+    follow_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    follower_id INT NOT NULL,
+    followed_id INT NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('已关注','取消关注') DEFAULT '已关注',
+    FOREIGN KEY (follower_id) REFERENCES users(user_id),
+    FOREIGN KEY (followed_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 私信表
+CREATE TABLE messages (
+    message_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    sender_id INT NOT NULL,
+    receiver_id INT NOT NULL,
+    content TEXT NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_read ENUM('是','否') DEFAULT '否',
+    FOREIGN KEY (sender_id) REFERENCES users(user_id),
+    FOREIGN KEY (receiver_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 系统通知表
+CREATE TABLE notifications (
+    notice_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    user_id INT NOT NULL,
+    trigger_id INT NOT NULL,
+    notice_type ENUM('点赞','评论','关注','转发') NOT NULL,
+    target_id INT,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_read ENUM('是','否') DEFAULT '否',
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (trigger_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- 3. 拓展功能表（5张）
+-- ----------------------------
+
+-- 微博分类表
+CREATE TABLE weibo_category (
+    category_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    category_name VARCHAR(50) NOT NULL UNIQUE,
+    cover_img VARCHAR(255),
+    sort INT DEFAULT 0,
+    status ENUM('启用','禁用') DEFAULT '启用'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 话题表
+CREATE TABLE topics (
+    topic_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    topic_name VARCHAR(100) NOT NULL UNIQUE,
+    cover VARCHAR(255),
+    read_count INT DEFAULT 0,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 微博话题关联表
+CREATE TABLE weibo_topic_rel (
+    rel_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    weibo_id INT NOT NULL,
+    topic_id INT NOT NULL,
+    FOREIGN KEY (weibo_id) REFERENCES weibo_posts(weibo_id),
+    FOREIGN KEY (topic_id) REFERENCES topics(topic_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 搜索记录表
+CREATE TABLE search_record (
+    search_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    user_id INT,
+    keyword VARCHAR(100) NOT NULL,
+    search_type ENUM('内容','话题','用户') NOT NULL,
+    topic_id INT,
+    weibo_id INT,
+    target_user_id INT,
+    search_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (topic_id) REFERENCES topics(topic_id),
+    FOREIGN KEY (weibo_id) REFERENCES weibo_posts(weibo_id),
+    FOREIGN KEY (target_user_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 热搜榜单表
+CREATE TABLE hot_search (
+    hot_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    hot_title VARCHAR(100) NOT NULL,
+    hot_score INT DEFAULT 0,
+    hot_level ENUM('爆','热','新','沸'),
+    topic_id INT,
+    is_top ENUM('是','否') DEFAULT '否',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('在榜','下架') DEFAULT '在榜',
+    FOREIGN KEY (topic_id) REFERENCES topics(topic_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 用户自定义页面表
+CREATE TABLE user_custom_page (
+    custom_id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    user_id INT NOT NULL UNIQUE,
+    bg_img VARCHAR(255),
+    theme_style ENUM('浅色','深色','自定义') DEFAULT '浅色',
+    show_modules VARCHAR(255),
+    module_sort VARCHAR(255),
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- 4. 填充测试数据（可直接运行）
+-- ----------------------------
+
+-- 用户数据（密码：123456 MD5加密）
+INSERT INTO users (username, password, nickname, avatar, gender, intro, status, score)
+VALUES 
+('student001', 'e10adc3949ba59abbe56e057f20f883e', '小明', 'https://picsum.photos/200/200?random=1', '男', '热爱生活，喜欢分享', '正常', 100),
+('student002', 'e10adc3949ba59abbe56e057f20f883e', '小红', 'https://picsum.photos/200/200?random=2', '女', '文艺青年，爱摄影', '正常', 88),
+('student003', 'e10adc3949ba59abbe56e057f20f883e', '小李', 'https://picsum.photos/200/200?random=3', '男', '技术宅，编程爱好者', '正常', 150),
+('student004', 'e10adc3949ba59abbe56e057f20f883e', '小王', 'https://picsum.photos/200/200?random=4', '保密', '佛系玩家，随缘更新', '正常', 66);
+
+-- 分类数据
+INSERT INTO weibo_category (category_name, cover_img, sort, status)
+VALUES 
+('校园生活', 'https://picsum.photos/300/200?random=10', 1, '启用'),
+('学习分享', 'https://picsum.photos/300/200?random=11', 2, '启用'),
+('娱乐八卦', 'https://picsum.photos/300/200?random=12', 3, '启用'),
+('科技数码', 'https://picsum.photos/300/200?random=13', 4, '启用');
+
+-- 话题数据
+INSERT INTO topics (topic_name, cover, read_count)
+VALUES 
+('#校园日常#', 'https://picsum.photos/300/200?random=20', 1200),
+('#学习打卡#', 'https://picsum.photos/300/200?random=21', 800),
+('#大学生活#', 'https://picsum.photos/300/200?random=22', 2500),
+('#实习日记#', 'https://picsum.photos/300/200?random=23', 1800);
+
+-- 微博内容
+INSERT INTO weibo_posts (user_id, content, category_id, like_count, comment_count, repost_count, is_delete)
+VALUES 
+(1, '今天上课收获满满，继续努力！#学习打卡#', 2, 25, 8, 3, '否'),
+(2, '校园的秋天也太好看了吧！#校园日常#', 1, 42, 15, 6, '否'),
+(3, '新入手的电脑，性能超强！#科技数码#', 4, 36, 12, 4, '否'),
+(4, '实习第一天，加油打工人！#实习日记#', 2, 58, 20, 9, '否');
+
+-- 微博图片
+INSERT INTO weibo_images (weibo_id, image_url, sort)
+VALUES 
+(1, 'https://picsum.photos/400/300?random=101', 1),
+(2, 'https://picsum.photos/400/300?random=102', 1),
+(2, 'https://picsum.photos/400/300?random=103', 2),
+(3, 'https://picsum.photos/400/300?random=104', 1),
+(4, 'https://picsum.photos/400/300?random=105', 1);
+
+-- 微博-话题关联
+INSERT INTO weibo_topic_rel (weibo_id, topic_id)
+VALUES 
+(1, 2),
+(2, 1),
+(2, 3),
+(3, 4),
+(4, 4);
+
+-- 热搜数据
+INSERT INTO hot_search (hot_title, hot_score, hot_level, topic_id, is_top, status)
+VALUES 
+('大学生实习攻略', 9852, '热', 4, '否', '在榜'),
+('校园秋日美景', 7521, '新', 1, '否', '在榜'),
+('学习打卡挑战', 6325, '沸', 2, '是', '在榜');
+
+-- 用户自定义主页
+INSERT INTO user_custom_page (user_id, bg_img, theme_style, show_modules)
+VALUES 
+(1, 'https://picsum.photos/1200/600?random=201', '浅色', '微博,关注,粉丝'),
+(2, 'https://picsum.photos/1200/600?random=202', '深色', '微博,相册,简介');
