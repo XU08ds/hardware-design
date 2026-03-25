@@ -1,0 +1,267 @@
+-- 创建数据库
+CREATE DATABASE IF NOT EXISTS `forum` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `forum`;
+
+-- ----------------------------
+-- 1. 用户表
+-- ----------------------------
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE `users` (
+  `user_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '用户ID',
+  `username` VARCHAR(50) NOT NULL UNIQUE COMMENT '登录名',
+  `password` VARCHAR(100) NOT NULL COMMENT '加密密码',
+  `nickname` VARCHAR(50) DEFAULT NULL COMMENT '昵称',
+  `avatar` VARCHAR(255) DEFAULT NULL COMMENT '头像',
+  `gender` ENUM('男','女','保密') DEFAULT '保密' COMMENT '性别',
+  `intro` TEXT DEFAULT NULL COMMENT '简介',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
+  `status` ENUM('正常','封禁') DEFAULT '正常' COMMENT '状态',
+  `xp` INT DEFAULT 0 COMMENT '经验'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+
+INSERT INTO `users` (`username`,`password`,`nickname`,`gender`,`intro`,`xp`) VALUES
+('user1','123456','校园小萌新','男','热爱学习',88),
+('user2','123456','实习达人','女','求职分享',120),
+('user3','123456','技术宅','保密','数据库爱好者',150);
+
+-- ----------------------------
+-- 2. 微博表
+-- ----------------------------
+DROP TABLE IF EXISTS `weibo_posts`;
+CREATE TABLE `weibo_posts` (
+  `weibo_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '微博ID',
+  `user_id` INT NOT NULL COMMENT '作者ID',
+  `content` TEXT DEFAULT NULL COMMENT '内容',
+  `category_id` INT DEFAULT NULL COMMENT '分类ID',
+  `like_count` INT DEFAULT 0 COMMENT '点赞数',
+  `comment_count` INT DEFAULT 0 COMMENT '评论数',
+  `repost_count` INT DEFAULT 0 COMMENT '转发数',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+  `is_delete` ENUM('是','否') DEFAULT '否' COMMENT '软删除',
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微博表';
+
+INSERT INTO `weibo_posts` (`user_id`,`content`,`category_id`,`like_count`,`comment_count`) VALUES
+(1,'今天完成了数据库实习作业！',1,20,5),
+(2,'分享我的实习面试经验～',2,35,8),
+(3,'MySQL优化真的很重要！',3,42,12);
+
+-- ----------------------------
+-- 3. 微博图片表
+-- ----------------------------
+DROP TABLE IF EXISTS `weibo_images`;
+CREATE TABLE `weibo_images` (
+  `image_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '图片ID',
+  `weibo_id` INT NOT NULL COMMENT '微博ID',
+  `image_url` VARCHAR(255) NOT NULL COMMENT '图片地址',
+  `sort` INT DEFAULT 0 COMMENT '排序',
+  FOREIGN KEY (`weibo_id`) REFERENCES `weibo_posts`(`weibo_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微博图片表';
+
+INSERT INTO `weibo_images` (`weibo_id`,`image_url`,`sort`) VALUES
+(1,'https://img1.jpg',0),
+(1,'https://img2.jpg',1),
+(2,'https://img3.jpg',0);
+
+-- ----------------------------
+-- 4. 评论表
+-- ----------------------------
+DROP TABLE IF EXISTS `comments`;
+CREATE TABLE `comments` (
+  `comment_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '评论ID',
+  `weibo_id` INT NOT NULL COMMENT '微博ID',
+  `user_id` INT NOT NULL COMMENT '评论人',
+  `content` TEXT NOT NULL COMMENT '内容',
+  `parent_id` INT DEFAULT NULL COMMENT '父评论',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间',
+  FOREIGN KEY (`weibo_id`) REFERENCES `weibo_posts`(`weibo_id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评论表';
+
+INSERT INTO `comments` (`weibo_id`,`user_id`,`content`) VALUES
+(1,2,'太厉害了！'),
+(1,3,'学习了！'),
+(2,1,'感谢分享！');
+
+-- ----------------------------
+-- 5. 点赞表
+-- ----------------------------
+DROP TABLE IF EXISTS `likes`;
+CREATE TABLE `likes` (
+  `like_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '点赞ID',
+  `user_id` INT NOT NULL COMMENT '用户ID',
+  `target_id` INT NOT NULL COMMENT '对象ID',
+  `target_type` ENUM('微博','评论') NOT NULL COMMENT '类型',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间',
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='点赞表';
+
+INSERT INTO `likes` (`user_id`,`target_id`,`target_type`) VALUES
+(1,1,'微博'),
+(2,1,'微博'),
+(3,2,'微博');
+
+-- ----------------------------
+-- 6. 关注表
+-- ----------------------------
+DROP TABLE IF EXISTS `follows`;
+CREATE TABLE `follows` (
+  `follow_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '关注ID',
+  `follower_id` INT NOT NULL COMMENT '关注者',
+  `followed_id` INT NOT NULL COMMENT '被关注者',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间',
+  `status` ENUM('已关注','取消关注') DEFAULT '已关注' COMMENT '状态',
+  FOREIGN KEY (`follower_id`) REFERENCES `users`(`user_id`),
+  FOREIGN KEY (`followed_id`) REFERENCES `users`(`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='关注表';
+
+INSERT INTO `follows` (`follower_id`,`followed_id`) VALUES
+(1,2),(2,3),(3,1);
+
+-- ----------------------------
+-- 7. 私信表
+-- ----------------------------
+DROP TABLE IF EXISTS `messages`;
+CREATE TABLE `messages` (
+  `message_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '私信ID',
+  `sender_id` INT NOT NULL COMMENT '发送者',
+  `receiver_id` INT NOT NULL COMMENT '接收者',
+  `content` TEXT NOT NULL COMMENT '内容',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间',
+  `is_read` ENUM('是','否') DEFAULT '否' COMMENT '已读',
+  FOREIGN KEY (`sender_id`) REFERENCES `users`(`user_id`),
+  FOREIGN KEY (`receiver_id`) REFERENCES `users`(`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='私信表';
+
+INSERT INTO `messages` (`sender_id`,`receiver_id`,`content`) VALUES
+(1,2,'你好，交流一下实习经验？'),
+(2,1,'没问题，互相学习！'),
+(3,1,'数据库设计可以问我');
+
+-- ----------------------------
+-- 8. 通知表
+-- ----------------------------
+DROP TABLE IF EXISTS `notifications`;
+CREATE TABLE `notifications` (
+  `notice_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '通知ID',
+  `user_id` INT NOT NULL COMMENT '接收人',
+  `trigger_id` INT NOT NULL COMMENT '触发人',
+  `notice_type` ENUM('点赞','评论','关注','转发') NOT NULL COMMENT '类型',
+  `target_id` INT DEFAULT NULL COMMENT '关联ID',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间',
+  `is_read` ENUM('是','否') DEFAULT '否' COMMENT '已读',
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`),
+  FOREIGN KEY (`trigger_id`) REFERENCES `users`(`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知表';
+
+INSERT INTO `notifications` (`user_id`,`trigger_id`,`notice_type`,`target_id`) VALUES
+(1,2,'关注',NULL),
+(1,3,'评论',1),
+(2,1,'点赞',2);
+
+-- ----------------------------
+-- 9. 分类表
+-- ----------------------------
+DROP TABLE IF EXISTS `weibo_category`;
+CREATE TABLE `weibo_category` (
+  `category_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '分类ID',
+  `category_name` VARCHAR(50) NOT NULL UNIQUE COMMENT '分类名',
+  `cover_img` VARCHAR(255) DEFAULT NULL COMMENT '封面',
+  `sort` INT DEFAULT 0 COMMENT '排序',
+  `status` ENUM('启用','禁用') DEFAULT '启用' COMMENT '状态'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分类表';
+
+INSERT INTO `weibo_category` (`category_name`) VALUES
+('学习'),('实习'),('技术');
+
+-- ----------------------------
+-- 10. 话题表
+-- ----------------------------
+DROP TABLE IF EXISTS `topics`;
+CREATE TABLE `topics` (
+  `topic_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '话题ID',
+  `topic_name` VARCHAR(100) NOT NULL UNIQUE COMMENT '话题名',
+  `cover` VARCHAR(255) DEFAULT NULL COMMENT '封面',
+  `read_count` INT DEFAULT 0 COMMENT '阅读量',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='话题表';
+
+INSERT INTO `topics` (`topic_name`,`read_count`) VALUES
+('#数据库实习',1200),('#面试经验',1800),('#校园生活',2500);
+
+-- ----------------------------
+-- 11. 微博-话题关联表
+-- ----------------------------
+DROP TABLE IF EXISTS `weibo_topic_rel`;
+CREATE TABLE `weibo_topic_rel` (
+  `rel_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '关联ID',
+  `weibo_id` INT NOT NULL COMMENT '微博ID',
+  `topic_id` INT NOT NULL COMMENT '话题ID',
+  FOREIGN KEY (`weibo_id`) REFERENCES `weibo_posts`(`weibo_id`),
+  FOREIGN KEY (`topic_id`) REFERENCES `topics`(`topic_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='微博话题关联表';
+
+INSERT INTO `weibo_topic_rel` (`weibo_id`,`topic_id`) VALUES
+(1,1),(2,2),(3,1);
+
+-- ----------------------------
+-- 12. 搜索记录表
+-- ----------------------------
+DROP TABLE IF EXISTS `search_record`;
+CREATE TABLE `search_record` (
+  `search_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '搜索ID',
+  `user_id` INT DEFAULT NULL COMMENT '用户ID',
+  `keyword` VARCHAR(100) NOT NULL COMMENT '关键词',
+  `search_type` ENUM('内容','话题','用户') NOT NULL COMMENT '类型',
+  `topic_id` INT DEFAULT NULL COMMENT '话题ID',
+  `weibo_id` INT DEFAULT NULL COMMENT '微博ID',
+  `target_user_id` INT DEFAULT NULL COMMENT '用户ID',
+  `search_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间',
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`),
+  FOREIGN KEY (`topic_id`) REFERENCES `topics`(`topic_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='搜索记录表';
+
+INSERT INTO `search_record` (`user_id`,`keyword`,`search_type`,`topic_id`) VALUES
+(1,'数据库','话题',1),
+(2,'实习','内容',NULL),
+(3,'面试','话题',2);
+
+-- ----------------------------
+-- 13. 热搜表
+-- ----------------------------
+DROP TABLE IF EXISTS `hot_search`;
+CREATE TABLE `hot_search` (
+  `hot_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '热搜ID',
+  `hot_title` VARCHAR(100) NOT NULL COMMENT '标题',
+  `hot_score` INT DEFAULT 0 COMMENT '热度',
+  `hot_level` ENUM('爆','热','新','沸') DEFAULT NULL COMMENT '等级',
+  `topic_id` INT DEFAULT NULL COMMENT '话题ID',
+  `is_top` ENUM('是','否') DEFAULT '否' COMMENT '置顶',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间',
+  `status` ENUM('在榜','下架') DEFAULT '在榜' COMMENT '状态',
+  FOREIGN KEY (`topic_id`) REFERENCES `topics`(`topic_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='热搜表';
+
+INSERT INTO `hot_search` (`hot_title`,`hot_score`,`hot_level`,`topic_id`,`is_top`) VALUES
+('数据库实习攻略',999,'热',1,'是'),
+('大学生面试技巧',888,'沸',2,'否');
+
+-- ----------------------------
+-- 14. 用户自定义主页表
+-- ----------------------------
+DROP TABLE IF EXISTS `user_custom_page`;
+CREATE TABLE `user_custom_page` (
+  `custom_id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL COMMENT '自定义ID',
+  `user_id` INT NOT NULL UNIQUE COMMENT '用户ID',
+  `bg_img` VARCHAR(255) DEFAULT NULL COMMENT '背景图',
+  `theme_style` ENUM('浅色','深色','自定义') DEFAULT '浅色' COMMENT '主题',
+  `show_modules` VARCHAR(255) DEFAULT NULL COMMENT '展示模块',
+  `module_sort` VARCHAR(255) DEFAULT NULL COMMENT '模块排序',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户自定义主页表';
+
+INSERT INTO `user_custom_page` (`user_id`,`theme_style`,`show_modules`) VALUES
+(1,'浅色','微博,关注,粉丝'),
+(2,'深色','微博,相册,资料'),
+(3,'自定义','微博,技术,关注');
